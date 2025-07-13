@@ -4,76 +4,48 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+// --- 1. IMPORTACIONES ---
 const db = require('./config/database');
+const authRoutes = require('./routes/authRoutes'); // Importamos nuestras rutas de autenticación
 
+// --- 2. INICIALIZACIÓN DE LA APP ---
 const app = express();
-
 const PORT = process.env.PORT || 8080;
 
-// --- CONFIGURACIÓN DE CORS MEJORADA Y ROBUSTA ---
-
+// --- 3. CONFIGURACIÓN DE CORS ---
+// Este bloque debe estar al principio para manejar las peticiones de pre-vuelo (OPTIONS).
 const frontendURL = process.env.FRONTEND_URL;
 if (!frontendURL) {
     console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida.");
 }
-
 const corsOptions = {
-    // 1. Origen: Solo permite peticiones desde la URL de tu frontend.
     origin: frontendURL,
-
-    // 2. Métodos: Especifica qué métodos HTTP están permitidos.
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-
-    // 3. Credenciales: Permite el envío de cookies o cabeceras de autorización.
     credentials: true,
-
-    // 4. Pre-vuelo: Le dice al navegador que puede "cachear" la respuesta del OPTIONS por 1 hora.
-    preflightContinue: false,
-    optionsSuccessStatus: 204 // Un estándar más común para respuestas OPTIONS.
+    optionsSuccessStatus: 204
 };
-
-// 5. ¡Paso clave! Primero usa cors para manejar la petición OPTIONS.
 app.use(cors(corsOptions));
 
-
-// --- FIN DE LA CONFIGURACIÓN DE CORS ---
-
-// --- RUTA ESPÍA PARA DEPURAR CORS ---
-app.get('/api/debug/cors', (req, res) => {
-    console.log("--- DEBUGGING CORS ---");
-    const frontendUrl = process.env.FRONTEND_URL;
-    console.log("La variable FRONTEND_URL que estoy usando es:", frontendUrl);
-    console.log("----------------------");
-    res.status(200).json({
-        message: "Esta es la URL que mi configuración de CORS está esperando.",
-        la_url_que_espero_es: frontendUrl
-    });
-});
-// --- FIN DE RUTA ESPÍA ---
-
-
-// --- INICIO DEL SERVIDOR ---
-app.listen(PORT, () => {
-    // ... tu código de inicio
-});
-
-
-// Middlewares para parsear el cuerpo de la petición
+// --- 4. MIDDLEWARES DE PARSEO ---
+// Estos deben ir después de CORS y antes de que se definan las rutas.
+// Permiten que tu servidor entienda los datos JSON enviados desde el frontend.
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
-// --- RUTAS ---
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
-
+// --- 5. DEFINICIÓN DE RUTAS ---
+// Ruta de bienvenida para saber que la API está viva.
 app.get('/', (req, res) => {
-    res.send('API de Plataforma Deportiva funcionando correctamente!');
+    res.send('API de Plataforma Deportiva funcionando!');
 });
 
-// --- INICIO DEL SERVIDOR ---
+// Le decimos a Express que CUALQUIER petición que empiece con '/api/auth'
+// debe ser manejada por el router que importamos de 'authRoutes.js'.
+app.use('/api/auth', authRoutes);
+
+// --- 6. INICIO DEL SERVIDOR (Solo se llama UNA VEZ y al FINAL) ---
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
+    // Verificamos la conexión a la base de datos al iniciar para un feedback rápido.
     db.getConnection()
         .then(conn => {
             console.log("¡ÉXITO! Conexión a la base de datos de Railway confirmada.");
