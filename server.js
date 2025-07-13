@@ -1,33 +1,60 @@
+// Archivo: server.js
+
 const express = require('express');
-const cors = require('cors'); // Asegúrate de tenerlo: npm install cors
-require('dotenv').config(); // Asegúrate de tenerlo: npm install dotenv
+const cors = require('cors');
+require('dotenv').config();
+
+// Importar la conexión para verificarla (opcional pero buena práctica)
+const db = require('./config/database'); 
 
 const app = express();
 
-// --- CONFIGURACIÓN CRÍTICA DE CORS ---
-const whiteList = [
-    process.env.FRONTEND_URL, // La URL de tu frontend desplegado
-    'http://localhost:5173'   // La URL de tu frontend en desarrollo local (Vite)
-];
+
+// --- CONFIGURACIÓN DE PUERTO PARA RAILWAY ---
+// Railway asigna el puerto a través de la variable de entorno PORT.
+// El valor 3001 es un fallback para cuando trabajes en tu máquina local.
+const PORT = process.env.PORT || 3001;
+
+
+// --- CONFIGURACIÓN DE CORS PARA PRODUCCIÓN ---
+// Esto permite que tu frontend (ej. en Vercel) se comunique con tu backend en Railway.
+const frontendURL = process.env.FRONTEND_URL;
+if (!frontendURL) {
+    console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida. CORS puede fallar.");
+}
 const corsOptions = {
-    origin: function (origin, callback) {
-        if (whiteList.includes(origin) || !origin) {
-            callback(null, true);
-        } else {
-            callback(new Error('No permitido por CORS'));
-        }
-    }
+    origin: frontendURL, // Solo permite peticiones desde la URL de tu frontend
+    optionsSuccessStatus: 200 
 };
 app.use(cors(corsOptions));
-// ------------------------------------
 
-app.use(express.json()); // Para poder leer JSON en el body de las peticiones
 
-// Rutas
+// --- MIDDLEWARES ---
+app.use(express.json()); // Para parsear cuerpos de petición en formato JSON
+
+
+// --- RUTAS ---
 const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes); // Todas las rutas de auth empezarán con /api/auth
+app.use('/api/auth', authRoutes);
 
-const PORT = process.env.PORT || 8080;
+
+// --- RUTA DE VERIFICACIÓN (HEALTH CHECK) ---
+// Es útil tener una ruta para saber si el servidor está vivo.
+app.get('/', (req, res) => {
+    res.send('API de Plataforma Deportiva funcionando correctamente!');
+});
+
+
+// --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log(`Servidor escuchando en el puerto ${PORT}`);
+    // Verificamos la conexión a la base de datos al iniciar
+    db.getConnection()
+        .then(conn => {
+            console.log("Conexión a la base de datos de Railway confirmada y lista.");
+            conn.release(); // Libera la conexión
+        })
+        .catch(err => {
+            console.error("ERROR: No se pudo establecer una conexión con la base de datos al iniciar.", err);
+        });
 });
