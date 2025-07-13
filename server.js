@@ -4,57 +4,46 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-// Importar la conexión para verificarla (opcional pero buena práctica)
-const db = require('./config/database'); 
+const db = require('./config/database'); // Importar para la verificación inicial
 
 const app = express();
 
+const PORT = process.env.PORT || 8080; // Railway asignará PORT
 
-// --- CONFIGURACIÓN DE PUERTO PARA RAILWAY ---
-// Railway asigna el puerto a través de la variable de entorno PORT.
-// El valor 3001 es un fallback para cuando trabajes en tu máquina local.
-const PORT = process.env.PORT || 3001;
-
-
-// --- CONFIGURACIÓN DE CORS PARA PRODUCCIÓN ---
-// Esto permite que tu frontend (ej. en Vercel) se comunique con tu backend en Railway.
+// --- CONFIGURACIÓN DE CORS ---
+// Lee la URL del frontend desde las variables de entorno para mayor seguridad.
 const frontendURL = process.env.FRONTEND_URL;
+
 if (!frontendURL) {
-    console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida. CORS puede fallar.");
+    console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida. Las peticiones del frontend podrían ser bloqueadas por CORS.");
 }
+
 const corsOptions = {
-    origin: frontendURL, // Solo permite peticiones desde la URL de tu frontend
-    optionsSuccessStatus: 200 
+    origin: frontendURL,
+    optionsSuccessStatus: 200
 };
+
 app.use(cors(corsOptions));
-
-
-// --- MIDDLEWARES ---
-app.use(express.json()); // Para parsear cuerpos de petición en formato JSON
-
+app.use(express.json());
 
 // --- RUTAS ---
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-
-// --- RUTA DE VERIFICACIÓN (HEALTH CHECK) ---
-// Es útil tener una ruta para saber si el servidor está vivo.
 app.get('/', (req, res) => {
-    res.send('API de Plataforma Deportiva funcionando correctamente!');
+    res.send('API de Plataforma Deportiva funcionando!');
 });
-
 
 // --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
-    // Verificamos la conexión a la base de datos al iniciar
+    // Verificamos la conexión a la base de datos al iniciar para un feedback rápido
     db.getConnection()
         .then(conn => {
-            console.log("Conexión a la base de datos de Railway confirmada y lista.");
-            conn.release(); // Libera la conexión
+            console.log("¡ÉXITO! Conexión a la base de datos de Railway confirmada.");
+            conn.release();
         })
         .catch(err => {
-            console.error("ERROR: No se pudo establecer una conexión con la base de datos al iniciar.", err);
+            console.error("ERROR CRÍTICO AL INICIAR: No se pudo establecer una conexión con la base de datos.", err.code);
         });
 });

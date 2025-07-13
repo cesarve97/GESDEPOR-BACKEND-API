@@ -3,20 +3,20 @@
 const mysql = require('mysql2');
 require('dotenv').config();
 
-// En lugar de usar la URL completa, usamos las variables individuales que Railway inyecta.
-// Esto es más robusto contra problemas de red y firewall internos.
+// Usamos las variables que Railway inyecta de forma estándar y confiable.
+// Estos son los nombres correctos basados en la lista que proporcionaste.
 const dbConfig = {
-    host: process.env.MYSQLHOST,         // Host privado de la base de datos
-    user: process.env.MYSQLUSER,         // Usuario
-    password: process.env.MYSQLPASSWORD, // Contraseña
-    database: process.env.MYSQLDATABASE, // Nombre de la base de datos
-    port: process.env.MYSQLPORT          // Puerto
+    host:     process.env.MYSQLHOST,
+    user:     process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE,
+    port:     process.env.MYSQLPORT
 };
 
-// Verificación para asegurarnos de que las variables existen
-if (!dbConfig.host || !dbConfig.database) {
-    console.error("Error Crítico: Las variables de entorno de la base de datos (MYSQLHOST, MYSQLDATABASE, etc.) no están definidas.");
-    console.error("Asegúrate de que tu servicio de base de datos está correctamente vinculado en Railway.");
+// Verificación crítica para asegurar que las variables existen y no están vacías.
+if (!dbConfig.host || !dbConfig.user || !dbConfig.database) {
+    console.error("Error Crítico: Faltan variables de entorno esenciales para la base de datos (MYSQLHOST, MYSQLUSER, MYSQLDATABASE).");
+    console.error("Por favor, verifica que estas variables están definidas en tu servicio de backend en Railway y no están vacías.");
     process.exit(1); // Detiene la aplicación si no hay forma de conectar
 }
 
@@ -27,12 +27,10 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    // Timeout de conexión para evitar que se quede colgado indefinidamente
-    connectTimeout: 10000 
+    connectTimeout: 20000 // Aumentamos el timeout por seguridad
 });
 
-
-// Exportamos el pool con promesas para usar async/await
+// Exportamos el pool con promesas para poder usar async/await
 module.exports = pool.promise();
 
-console.log("Pool de conexiones a la base de datos de Railway configurado y listo.");
+console.log("Pool de conexiones a la base de datos de Railway configurado.");
