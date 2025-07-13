@@ -38,6 +38,25 @@ app.use(cors(corsOptions));
 
 // --- FIN DE LA CONFIGURACIÓN DE CORS ---
 
+// --- RUTA ESPÍA PARA DEPURAR CORS ---
+app.get('/api/debug/cors', (req, res) => {
+    console.log("--- DEBUGGING CORS ---");
+    const frontendUrl = process.env.FRONTEND_URL;
+    console.log("La variable FRONTEND_URL que estoy usando es:", frontendUrl);
+    console.log("----------------------");
+    res.status(200).json({
+        message: "Esta es la URL que mi configuración de CORS está esperando.",
+        la_url_que_espero_es: frontendUrl
+    });
+});
+// --- FIN DE RUTA ESPÍA ---
+
+
+// --- INICIO DEL SERVIDOR ---
+app.listen(PORT, () => {
+    // ... tu código de inicio
+});
+
 
 // Middlewares para parsear el cuerpo de la petición
 app.use(express.json());
