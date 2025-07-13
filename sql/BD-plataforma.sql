@@ -1,6 +1,6 @@
 -- Creación de la base de datos si no existe
-CREATE DATABASE IF NOT EXISTS plataforma_deportiva CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE plataforma_deportiva;
+CREATE DATABASE IF NOT EXISTS railway CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE railway;
 
 -- TABLAS DE UBIGEO Y DOCUMENTOS
 CREATE TABLE `tipos_documento` (

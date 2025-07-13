@@ -4,40 +4,57 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const db = require('./config/database'); // Importar para la verificación inicial
+const db = require('./config/database');
 
 const app = express();
 
-const PORT = process.env.PORT || 8080; // Railway asignará PORT
+const PORT = process.env.PORT || 8080;
 
-// --- CONFIGURACIÓN DE CORS ---
-// Lee la URL del frontend desde las variables de entorno para mayor seguridad.
+// --- CONFIGURACIÓN DE CORS MEJORADA Y ROBUSTA ---
+
 const frontendURL = process.env.FRONTEND_URL;
-
 if (!frontendURL) {
-    console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida. Las peticiones del frontend podrían ser bloqueadas por CORS.");
+    console.warn("ADVERTENCIA: La variable de entorno FRONTEND_URL no está definida.");
 }
 
 const corsOptions = {
+    // 1. Origen: Solo permite peticiones desde la URL de tu frontend.
     origin: frontendURL,
-    optionsSuccessStatus: 200
+
+    // 2. Métodos: Especifica qué métodos HTTP están permitidos.
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+
+    // 3. Credenciales: Permite el envío de cookies o cabeceras de autorización.
+    credentials: true,
+
+    // 4. Pre-vuelo: Le dice al navegador que puede "cachear" la respuesta del OPTIONS por 1 hora.
+    preflightContinue: false,
+    optionsSuccessStatus: 204 // Un estándar más común para respuestas OPTIONS.
 };
 
+// 5. ¡Paso clave! Primero usa cors para manejar la petición OPTIONS.
 app.use(cors(corsOptions));
+
+
+// --- FIN DE LA CONFIGURACIÓN DE CORS ---
+
+
+// Middlewares para parsear el cuerpo de la petición
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 
 // --- RUTAS ---
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
-    res.send('API de Plataforma Deportiva funcionando!');
+    res.send('API de Plataforma Deportiva funcionando correctamente!');
 });
 
 // --- INICIO DEL SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
-    // Verificamos la conexión a la base de datos al iniciar para un feedback rápido
     db.getConnection()
         .then(conn => {
             console.log("¡ÉXITO! Conexión a la base de datos de Railway confirmada.");
