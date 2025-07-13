@@ -1,5 +1,3 @@
-// Archivo: controllers/authController.js
-
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database'); // db ya viene con promesas
