@@ -1,3 +1,5 @@
+// Archivo: controllers/authController.js
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database'); // db ya viene con promesas
@@ -8,44 +10,106 @@ exports.registrar = async (req, res) => {
     console.log("Datos recibidos en el body:", req.body);
     console.log("-----------------------------------------");
 
-    const { nombre, apellido, email, password } = req.body;
+    const { 
+        nombre, 
+        apellido, 
+        email, 
+        password, 
+        tipo_usuario_id, // Asumimos que el frontend envía 1 para Cliente, 2 para Propietario
+        telefono, 
+        fecha_nacimiento, 
+        numero_documento 
+    } = req.body;
 
-    if (!email || !password || !nombre) {
-        return res.status(400).json({ message: 'Por favor, proporciona al menos nombre, email y contraseña.' });
+    // 2. Validación de campos obligatorios
+    if (!nombre || !email || !password || !tipo_usuario_id || !numero_documento) {
+        return res.status(400).json({ message: 'Por favor, completa todos los campos obligatorios: nombre, email, contraseña, DNI y tipo de usuario.' });
     }
 
+    // 2.1 Validación del número de documento (máximo 8 caracteres)
+    if (numero_documento.length > 8) {
+        return res.status(400).json({ message: 'El número de documento no puede tener más de 8 caracteres.' });
+    }
+
+    // 2.2 Validación adicional: solo números
+    if (!/^\d+$/.test(numero_documento)) {
+        return res.status(400).json({ message: 'El número de documento solo puede contener números.' });
+    }
+
+    // Usaremos una transacción porque si el usuario es "Propietario",
+    // necesitamos insertar en dos tablas (usuarios y propietarios) de forma atómica.
+    let connection; 
     try {
-        const [usuarios] = await db.query('SELECT email FROM usuarios WHERE email = ?', [email]);
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // 3. Verificamos que el email o el DNI no existan
+        const [usuariosExistentes] = await connection.query(
+            'SELECT email FROM usuarios WHERE email = ? OR numero_documento = ?', 
+            [email, numero_documento]
+        );
         
-        if (usuarios.length > 0) {
-            return res.status(409).json({ message: 'El correo electrónico ya está en uso.' });
+        if (usuariosExistentes.length > 0) {
+            await connection.rollback();
+            connection.release();
+            return res.status(409).json({ message: 'El correo electrónico o el DNI ya están en uso.' });
         }
 
+        // 4. Hasheamos la contraseña
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // 5. Creamos el objeto del nuevo usuario con todos los datos
         const nuevoUsuario = {
             nombre,
             apellido: apellido || null,
             email,
             password: hashedPassword,
-            tipo_usuario_id: 1,
-            estado_id: 1,
+            telefono: telefono || null,
+            fecha_nacimiento: fecha_nacimiento || null,
+            numero_documento,
+            tipo_usuario_id, // Dinámico desde el formulario
+            estado_id: 1, // Por defecto 'activo'
         };
         
-        const [result] = await db.query('INSERT INTO usuarios SET ?', nuevoUsuario);
+        // 6. Insertamos el usuario en la tabla 'usuarios'
+        const [result] = await connection.query('INSERT INTO usuarios SET ?', nuevoUsuario);
+        const nuevoUsuarioId = result.insertId;
         
-        console.log("¡ÉXITO! Usuario insertado con ID:", result.insertId);
-        res.status(201).json({ message: 'Usuario registrado con éxito.', userId: result.insertId });
+        console.log(`¡ÉXITO PARCIAL! Usuario base insertado con ID: ${nuevoUsuarioId}`);
+
+        // 7. Si es un Propietario (tipo_usuario_id = 2), lo insertamos en la tabla 'propietarios'
+        if (Number(tipo_usuario_id) === 2) {
+            const nuevoPropietario = {
+                id: nuevoUsuarioId, // El ID del propietario es el mismo que el del usuario
+                estado_id: 1, // Por defecto 'pendiente de aprobación'
+            };
+            await connection.query('INSERT INTO propietarios SET ?', nuevoPropietario);
+            console.log(`¡ÉXITO! Usuario ${nuevoUsuarioId} también registrado como Propietario.`);
+        }
+
+        // 8. Si todo fue bien, confirmamos la transacción
+        await connection.commit();
+        
+        res.status(201).json({ message: 'Usuario registrado con éxito.', userId: nuevoUsuarioId });
 
     } catch (error) {
+        // 9. Si algo falla, revertimos la transacción
+        if (connection) {
+            await connection.rollback();
+        }
         console.error("ERROR CATASTRÓFICO DURANTE EL REGISTRO:", error);
         res.status(500).json({ message: 'Error en el servidor al registrar el usuario.' });
+    } finally {
+        // 10. Liberamos la conexión a la base de datos
+        if (connection) {
+            connection.release();
+        }
     }
 };
 
 
-// --- FUNCIÓN DE LOGIN CORREGIDA Y COMPLETA ---
+// --- FUNCIÓN DE LOGIN (SIN CAMBIOS, YA ES CORRECTA) ---
 exports.login = async (req, res) => {
     console.log("-----------------------------------------");
     console.log("RECIBIDA PETICIÓN EN /api/auth/login");
